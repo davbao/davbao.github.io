@@ -1,21 +1,52 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>我的第一篇个人博客</title>
-    <url>/2021/09/16/%E6%88%91%E7%9A%84%E7%AC%AC%E4%B8%80%E7%AF%87%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/</url>
-    <content><![CDATA[<h2 id="第一章"><a href="#第一章" class="headerlink" title="第一章"></a>第一章</h2><p>我的个人博客搭好了</p>
-<p>——</p>
-<h2 id="第二章"><a href="#第二章" class="headerlink" title="第二章"></a>第二章</h2><p>今晚能准时下班么？</p>
-<p>——</p>
-<h2 id="第三章"><a href="#第三章" class="headerlink" title="第三章"></a>第三章</h2><p>老铁，双击666</p>
-<p>——</p>
+    <title>基于Docker快速搭建MySQL主从复制</title>
+    <url>/2021/09/20/%E5%9F%BA%E4%BA%8EDocker%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BAMySQL%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6/</url>
+    <content><![CDATA[<h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>每次想要学习一门技术时，总是苦于环境的搭建，往往第一步环境搭建就让人心烦意乱，最终丧失学习的兴趣。例如，早些年如果想要深入学习mysql，当遇到不同MySQL版本使用方式的对比时，只能下载不同版本的MySQL版本，然后分别安装，如果再碰到网络不佳等等诸多因素，等最后成功安装往往大半天的时间就过去了。最后技术可能没学好，倒是各种软件的安装熟悉了不少。哈哈，说多了都是泪，当年我就是这么一步一步踩坑过来的。今天，我们使用新的方式——Docker，基于Docker快速搭建MySQL主从复制。</p>
+<p><strong>步骤</strong></p>
+<ol>
+<li><p>首先根据计算机操作系统（mac、window、ubuntu等），安装好该操作系统下的docker</p>
+</li>
+<li><p>编写安装mysql的master和slave节点的docker文件编排</p>
+<p>2.1 在主机合适的地方新建mysql文件夹，文件名随意</p>
+<p>2.2 在mysql文件路径下，新建mysql-cluster文件夹，用于存放后续master和slave的相关数据</p>
+<p>2.3 在mysql文件路径下，新建docker-compose-mysql-cluster.yml文件，文件名随意</p>
+<p>2.4 编辑docker-compose-mysql-cluster.yml文件，内容如下</p>
+<figure class="highlight dts"><table><tr><td class="code"><pre><span class="line"><span class="symbol">version:</span> <span class="string">&#x27;3&#x27;</span></span><br><span class="line"><span class="symbol">services:</span></span><br><span class="line">  mysql-master:</span><br><span class="line"><span class="symbol">    image:</span> mysql:<span class="number">5.7</span></span><br><span class="line"><span class="symbol">    container_name:</span> mysql-master</span><br><span class="line"><span class="symbol">    environment:</span></span><br><span class="line">      - MYSQL_ROOT_PASSWORD=root</span><br><span class="line"><span class="symbol">    ports:</span></span><br><span class="line">      - <span class="string">&quot;3309:3306&quot;</span></span><br><span class="line"><span class="symbol">    volumes:</span></span><br><span class="line">      - <span class="string">&quot;./mysql-cluster/master/my.cnf:/etc/my.cnf&quot;</span></span><br><span class="line">      - <span class="string">&quot;./mysql-cluster/master/data:/var/lib/mysql&quot;</span></span><br><span class="line"><span class="symbol">    links:</span></span><br><span class="line">      - mysql-slave</span><br><span class="line">      </span><br><span class="line">  mysql-slave:</span><br><span class="line"><span class="symbol">    image:</span> mysql:<span class="number">5.7</span></span><br><span class="line"><span class="symbol">    container_name:</span> mysql-slave</span><br><span class="line"><span class="symbol">    environment:</span></span><br><span class="line">      - MYSQL_ROOT_PASSWORD=root</span><br><span class="line"><span class="symbol">    ports:</span></span><br><span class="line">      - <span class="string">&quot;3310:3306&quot;</span></span><br><span class="line"><span class="symbol">    volumes:</span></span><br><span class="line">      - <span class="string">&quot;./mysql-cluster/slave/my.cnf:/etc/my.cnf&quot;</span></span><br><span class="line">      - <span class="string">&quot;./mysql-cluster/slave/data:/var/lib/mysql&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>其中，mysql-master和mysql-slave表示节点名称；image表示pull的版本，可以通过<code>docker search mysql</code>来查看具体有哪些版本；environment配置环境运行时的一些信息，例如密码；ports是端口映射配置，冒号前面的表示宿主机的端口，后面的表示容器中mysql运行的实际端口，例如3309:3306即表示当访问主机3309端口时，最后被映射到容器中的mysql的3306端口；volumes配置的是文件之间的映射关系，同样冒号前端的为宿主机的文件路径然后映射到冒号后面的容器中的文件路径；link表示将mysql-slave容器的ip记录到该容器中, 再通过连接 mysql-slave:3306 可以访问数据库。</p>
+</li>
+<li><p>配置master的配置文件my.cnf</p>
+<figure class="highlight ini"><table><tr><td class="code"><pre><span class="line"><span class="section">[mysqld]</span></span><br><span class="line"><span class="comment"># [必须]启用二进制日志</span></span><br><span class="line"><span class="attr">log-bin</span>=mysql-bin </span><br><span class="line"><span class="comment"># [必须]服务器唯一ID，默认是1，一般取IP最后一段  </span></span><br><span class="line"><span class="attr">server-id</span>=<span class="number">1</span></span><br><span class="line"><span class="comment">## 复制过滤：可以指定哪个数据库不用同步（mysql库一般不同步）</span></span><br><span class="line"><span class="attr">binlog-ignore-db</span>=mysql</span><br></pre></td></tr></table></figure></li>
+<li><p>配置slave的配置文件my.cnf</p>
+<figure class="highlight ini"><table><tr><td class="code"><pre><span class="line"><span class="section">[mysqld]</span></span><br><span class="line"><span class="comment"># [必须]服务器唯一ID，默认是1，同一局域网中，该值不能重复，一般取IP最后一段  </span></span><br><span class="line"><span class="attr">server-id</span>=<span class="number">2</span></span><br></pre></td></tr></table></figure></li>
+<li><p>启动docker-compose，使用<code>docker ps</code>查看进程</p>
+<p>在mysql文件路径下执行<code>docker-compose -f docker-compose-mysql-cluster.yml up -d</code></p>
+<p>docker ps查看进程</p>
+<figure class="highlight apache"><table><tr><td class="code"><pre><span class="line"><span class="attribute">CONTAINER</span> ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                               NAMES</span><br><span class="line"><span class="attribute">5d14a405624d</span>        mysql:<span class="number">5</span>.<span class="number">7</span>           <span class="string">&quot;docker-entrypoint.s…&quot;</span>   <span class="number">7</span> hours ago         Up <span class="number">7</span> hours          <span class="number">33060</span>/tcp, <span class="number">0.0.0.0:3309</span>-&gt;<span class="number">3306</span>/tcp   mysql-master</span><br><span class="line"><span class="attribute">d1e0687850fb</span>        mysql:<span class="number">5</span>.<span class="number">7</span>           <span class="string">&quot;docker-entrypoint.s…&quot;</span>   <span class="number">7</span> hours ago         Up <span class="number">7</span> hours          <span class="number">33060</span>/tcp, <span class="number">0.0.0.0:3310</span>-&gt;<span class="number">3306</span>/tcp   mysql-slave</span><br></pre></td></tr></table></figure></li>
+<li><p>配置主从复制</p>
+<p>6.1 配置master</p>
+<figure class="highlight crmsh"><table><tr><td class="code"><pre><span class="line"><span class="comment">#进入mysql-master容器节点</span></span><br><span class="line">docker exec -it mysql-<span class="keyword">master</span> <span class="title">bash</span></span><br><span class="line"><span class="comment">#进入容器后，就可以把该容器想象成一个仅安装了mysql服务的计算机，命令连接mysql服务，然后输入密码，即yml文件中的配置密码</span></span><br><span class="line">mysql -uroot -p</span><br><span class="line"><span class="comment">#创建同步用户并设置同步用户权限</span></span><br><span class="line">create <span class="keyword">user</span> <span class="title">repl</span>;</span><br><span class="line">GRANT REPLICATION <span class="literal">SLAVE</span> ON *.* TO &#x27;repl&#x27;@&#x27;%&#x27; IDENTIFIED BY &#x27;repl&#x27;;</span><br><span class="line"><span class="comment">#显示master的状态，并记录File和Position的值，在配置slave的时候会用到</span></span><br><span class="line">show <span class="keyword">master</span> <span class="title">status</span>;</span><br></pre></td></tr></table></figure>
+
+<p>6.2 配置slave</p>
+<figure class="highlight routeros"><table><tr><td class="code"><pre><span class="line"><span class="comment">#进入mysql-slave容器节点</span></span><br><span class="line">docker exec -it mysql-slave bash</span><br><span class="line"><span class="comment">#进入容器后，同样将该容器想象成仅安装了mysql服务的计算机，命令连接mysql服务，然后输入密码，即yml文件中的配置密码</span></span><br><span class="line">mysql -uroot -p</span><br><span class="line"><span class="comment">#配置master的参数，注意此处用到6.1配置master中的File和Position的值</span></span><br><span class="line">CHANGE MASTER <span class="keyword">TO</span> <span class="attribute">MASTER_HOST</span>=<span class="string">&#x27;mysql-master&#x27;</span>, <span class="attribute">MASTER_USER</span>=<span class="string">&#x27;repl&#x27;</span>, MASTER_PASSWORD = <span class="string">&#x27;repl&#x27;</span>, MASTER_LOG_FILE = <span class="string">&#x27;mysql-bin.000003&#x27;</span>, MASTER_LOG_POS = 635;</span><br><span class="line"><span class="comment">#启动slave服务</span></span><br><span class="line">start slave;</span><br><span class="line"><span class="comment">#显示slave的状态，注意Slave_IO_Running和Slave_SQL_Running两个必须都是yes，才说明是成功的</span></span><br><span class="line">show slave status\G;</span><br></pre></td></tr></table></figure></li>
+<li><p>验证主从复制</p>
+</li>
+</ol>
+<p>使用navicat分别连接mysql-master和mysql-slave，然后在mysql-master节点创建数据库<code>create database test;</code>然后到mysql-slave中查看<code>show databases</code>，可以看到test库已经被同步过来，是不是很神奇？！接下来就可以用java写一些demo测试了。</p>
+<p><strong>最后</strong></p>
+<p>如果哪天不想用了，或者装错了，就直接使用docker命令把容器关掉，把镜像删掉，如果安装时做了文件映射，就把文件也删了，就当啥也没发生过，非常快捷方便。</p>
+<blockquote>
+<p><strong>版权申明: 本站博文如非注明转载则均属作者原创文章，引用或转载请注明出处，谢谢。</strong></p>
+</blockquote>
 ]]></content>
       <categories>
-        <category>记录</category>
+        <category>MySQL</category>
       </categories>
       <tags>
-        <tag>庆祝</tag>
-        <tag>笔记</tag>
+        <tag>docker</tag>
+        <tag>主从复制</tag>
       </tags>
   </entry>
 </search>
